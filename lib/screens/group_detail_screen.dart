@@ -21,6 +21,145 @@ class GroupDetailScreen extends StatefulWidget {
 class _GroupDetailScreenState extends State<GroupDetailScreen> {
   bool _simplifyDebtsEnabled = true;
 
+  void _showAddMembersModal(
+      BuildContext context, ExpenseProvider provider, Group group) {
+    final selectedNewMemberIds = <String>{};
+    final availableFriends = provider.friends
+        .where((f) => !group.participantIds.contains(f.id))
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Container(
+              padding: EdgeInsets.only(
+                top: 24,
+                left: 24,
+                right: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardTheme.color,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceBorder,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'ADD MEMBERS TO ${group.name.toUpperCase()}',
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Add Friends to Group',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  availableFriends.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Text(
+                            'All your campus friends are already members of this group!',
+                            style: TextStyle(
+                                color: AppColors.textMuted, fontSize: 13),
+                          ),
+                        )
+                      : Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: availableFriends.map((friend) {
+                            final isSelected =
+                                selectedNewMemberIds.contains(friend.id);
+                            return FilterChip(
+                              selected: isSelected,
+                              avatar: CircleAvatar(
+                                backgroundColor: friend.color,
+                                child: Text(friend.initials,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                              label: Text(friend.name),
+                              selectedColor: AppColors.primary,
+                              onSelected: (selected) {
+                                setModalState(() {
+                                  if (selected) {
+                                    selectedNewMemberIds.add(friend.id);
+                                  } else {
+                                    selectedNewMemberIds.remove(friend.id);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: selectedNewMemberIds.isEmpty
+                          ? null
+                          : () {
+                              provider.addGroupMembers(
+                                  group.id, selectedNewMemberIds.toList());
+                              Navigator.pop(modalContext);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      'Added ${selectedNewMemberIds.length} new member(s) to ${group.name}!'),
+                                  backgroundColor: AppColors.positive,
+                                ),
+                              );
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: Text(
+                        'ADD ${selectedNewMemberIds.length} MEMBER(S)',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<ExpenseProvider>(context);
@@ -57,9 +196,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.group_add_outlined, color: AppColors.primaryLight),
+            icon: const Icon(Icons.person_add_rounded,
+                color: AppColors.primaryLight),
+            tooltip: 'Add Members',
+            onPressed: () => _showAddMembersModal(context, provider, group),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_rounded, color: AppColors.primaryLight),
+            tooltip: 'Add Group Expense',
             onPressed: () {
-              // Add expense to this group
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AddExpenseScreen()),
@@ -130,6 +275,32 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                             ],
                           ),
                         ],
+                      ),
+                      GestureDetector(
+                        onTap: () => _showAddMembersModal(context, provider, group),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.person_add_rounded,
+                                  size: 14, color: Colors.white),
+                              SizedBox(width: 4),
+                              Text(
+                                '+ Add Member',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -234,15 +405,28 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
             const SizedBox(height: 24),
 
-            // Group Members List
-            const Text(
-              'GROUP PARTICIPANTS',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.1,
-              ),
+            // Group Members Header & Add Action
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'GROUP PARTICIPANTS',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _showAddMembersModal(context, provider, group),
+                  icon: const Icon(Icons.person_add_rounded, size: 16),
+                  label: const Text(
+                    '+ Add Members',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
 
@@ -250,18 +434,53 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               height: 70,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: group.participantIds.length,
+                itemCount: group.participantIds.length + 1,
                 itemBuilder: (context, idx) {
+                  if (idx == group.participantIds.length) {
+                    // Add Member Card Button
+                    return GestureDetector(
+                      onTap: () => _showAddMembersModal(context, provider, group),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                              color: AppColors.primary, width: 1.5),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.add_circle_outline_rounded,
+                                color: AppColors.primaryLight, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Add Member',
+                              style: TextStyle(
+                                color: AppColors.primaryLight,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
                   final pId = group.participantIds[idx];
                   final person = provider.getPersonById(pId);
 
                   return Container(
                     margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: Theme.of(context).cardTheme.color,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.surfaceBorder, width: 1),
+                      border:
+                          Border.all(color: AppColors.surfaceBorder, width: 1),
                     ),
                     child: Row(
                       children: [
@@ -279,11 +498,14 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          person.id == provider.currentUser.id ? 'You' : person.name.split(' ').first,
+                          person.id == provider.currentUser.id
+                              ? 'You'
+                              : person.name.split(' ').first,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                            color:
+                                Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                       ],
@@ -330,7 +552,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 ? const EmptyStateWidget(
                     icon: Icons.receipt_long_rounded,
                     title: 'No group expenses yet',
-                    message: 'Add an expense to start splitting bills with this group!',
+                    message:
+                        'Add an expense to start splitting bills with this group!',
                   )
                 : ListView.builder(
                     shrinkWrap: true,

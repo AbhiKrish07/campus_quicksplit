@@ -201,6 +201,24 @@ class ExpenseProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> addGroupMembers(String groupId, List<String> newMemberIds) async {
+    final index = _groups.indexWhere((g) => g.id == groupId);
+    if (index != -1) {
+      final old = _groups[index];
+      final updatedParticipants = Set<String>.from(old.participantIds)..addAll(newMemberIds);
+
+      _groups[index] = Group(
+        id: old.id,
+        name: old.name,
+        participantIds: updatedParticipants.toList(),
+        icon: old.icon,
+      );
+
+      await LocalStorageService.saveGroups(_groups);
+      notifyListeners();
+    }
+  }
+
   Future<void> updateGroupName(String groupId, String newName) async {
     final index = _groups.indexWhere((g) => g.id == groupId);
     if (index != -1) {
