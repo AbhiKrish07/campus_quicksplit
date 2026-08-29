@@ -32,18 +32,51 @@ class ExpenseCard extends StatelessWidget {
     final userShare = expense.getShareForParticipant(currentUserId);
     final userPaid = expense.getAmountPaidBy(currentUserId);
 
-    double signedAmount = userPaid - userShare;
-    String statusText = '';
+    final descLower = expense.description.toLowerCase();
+    final bool isSettlementExp = expense.isSettlement ||
+        expense.id.startsWith('settle_') ||
+        descLower.contains('settle') ||
+        descLower.contains('pay') ||
+        descLower.contains('transfer');
+
+    // Exact Splitwise Net Balance Logic
+    final double netAmount = userPaid - userShare;
+    String statusTitle = '';
+    String netLabel = '';
     Color amountColor = AppColors.textSecondary;
 
-    if (isPayer) {
-      statusText = 'You paid ${currencyFormat.format(expense.amount)}';
-      amountColor = signedAmount >= 0 ? AppColors.positive : AppColors.negative;
+    if (isSettlementExp) {
+      if (isPayer) {
+        statusTitle = 'You paid ${currencyFormat.format(expense.amount)}';
+        netLabel = 'payment sent';
+        amountColor = AppColors.positive;
+      } else {
+        statusTitle = '${paidByPerson.name.split(' ').first} paid ${currencyFormat.format(expense.amount)}';
+        netLabel = 'payment received';
+        amountColor = AppColors.positive;
+      }
+    } else if (isPayer) {
+      statusTitle = 'You paid ${currencyFormat.format(expense.amount)}';
+      if (netAmount > 0.009) {
+        netLabel = 'you lent';
+        amountColor = AppColors.positive;
+      } else {
+        netLabel = 'no balance change';
+        amountColor = AppColors.textMuted;
+      }
     } else if (isParticipant) {
-      statusText = '${paidByPerson.name} paid';
-      amountColor = AppColors.negative;
+      statusTitle = '${paidByPerson.name.split(' ').first} paid ${currencyFormat.format(expense.amount)}';
+      if (netAmount < -0.009) {
+        netLabel = 'you owe ${paidByPerson.name.split(' ').first}';
+        amountColor = AppColors.negative;
+      } else {
+        netLabel = 'no balance change';
+        amountColor = AppColors.textMuted;
+      }
     } else {
-      statusText = 'Not involved';
+      statusTitle = '${paidByPerson.name.split(' ').first} paid ${currencyFormat.format(expense.amount)}';
+      netLabel = 'not involved';
+      amountColor = AppColors.textMuted;
     }
 
     return Dismissible(
@@ -121,13 +154,14 @@ class ExpenseCard extends StatelessWidget {
                       ),
                     ),
                     child: Icon(
-                      category.icon,
-                      color: category.color,
+                      isSettlementExp ? Icons.payment_rounded : category.icon,
+                      color: isSettlementExp ? AppColors.positive : category.color,
                       size: 24,
                     ),
                   ),
                   const SizedBox(width: 14),
-                  // Details Column
+
+                  // Middle Details Column
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,65 +171,68 @@ class ExpenseCard extends StatelessWidget {
                           style: TextStyle(
                             color: Theme.of(context).textTheme.bodyLarge?.color,
                             fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              statusText,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              '•',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 10,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              dateFormat.format(expense.timestamp),
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          statusTitle,
+                          style: TextStyle(
+                            color: isPayer
+                                ? AppColors.primaryLight
+                                : AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isSettlementExp
+                              ? '${dateFormat.format(expense.timestamp)} • Direct Payment'
+                              : '${dateFormat.format(expense.timestamp)} • ${expense.participantIds.length} split (${expense.splitMode.name})',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // Signed Amount Indicator
+
+                  // Right Side Splitwise Net Amount Badge
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        signedAmount > 0
-                            ? '+${currencyFormat.format(signedAmount)}'
-                            : signedAmount < 0
-                                ? '-${currencyFormat.format(signedAmount.abs())}'
-                                : currencyFormat.format(0),
+                        netLabel,
                         style: TextStyle(
-                          color: amountColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          color: isSettlementExp
+                              ? (isPayer ? AppColors.positive : AppColors.positive)
+                              : amountColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${expense.participantIds.length} split (${expense.splitMode.name})',
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
+                        isSettlementExp
+                            ? (isPayer
+                                ? '-${currencyFormat.format(expense.amount)}'
+                                : '+${currencyFormat.format(expense.amount)}')
+                            : netAmount > 0.009
+                                ? '+${currencyFormat.format(netAmount)}'
+                                : netAmount < -0.009
+                                    ? '-${currencyFormat.format(netAmount.abs())}'
+                                    : currencyFormat.format(0),
+                        style: TextStyle(
+                          color: isSettlementExp
+                              ? (isPayer ? AppColors.positive : AppColors.positive)
+                              : amountColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ],

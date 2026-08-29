@@ -78,5 +78,28 @@ void main() {
         -10.0,
       );
     });
+
+    test('isSettlement reduces debt by exact 100% dollar amount', () {
+      // user_2 owes user_1 $10.00
+      // user_2 pays $1.00 settlement to user_1
+      final settlement = Expense(
+        id: 'settle_1',
+        description: 'Settle Payment',
+        amount: 1.0,
+        category: CategoryType.general,
+        paidById: 'user_2',
+        participantIds: ['user_2', 'user_1'],
+        isSettlement: true,
+        timestamp: now,
+      );
+
+      final updatedExpenses = [...testExpenses, settlement];
+
+      // Net debt should reduce from $10.00 to $9.00 (not $9.50)
+      expect(
+        BalanceCalculator.calculatePairwiseBalance('user_1', 'user_2', updatedExpenses),
+        9.0,
+      );
+    });
   });
 }

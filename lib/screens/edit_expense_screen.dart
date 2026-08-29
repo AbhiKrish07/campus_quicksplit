@@ -8,51 +8,53 @@ import '../models/split_mode.dart';
 import '../providers/expense_provider.dart';
 import '../theme/app_colors.dart';
 
-class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({super.key});
+class EditExpenseScreen extends StatefulWidget {
+  final Expense expense;
+
+  const EditExpenseScreen({super.key, required this.expense});
 
   @override
-  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
+  State<EditExpenseScreen> createState() => _EditExpenseScreenState();
 }
 
-class _AddExpenseScreenState extends State<AddExpenseScreen> {
+class _EditExpenseScreenState extends State<EditExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _amountController = TextEditingController();
+  late TextEditingController _descriptionController;
+  late TextEditingController _amountController;
 
-  CategoryType _selectedCategory = CategoryType.coffee;
+  late CategoryType _selectedCategory;
   late String _selectedPaidById;
-  final Set<String> _selectedParticipantIds = {};
-  SplitMode _splitMode = SplitMode.equal;
-  bool _isDirectPaymentMode = false;
+  late Set<String> _selectedParticipantIds;
+  late SplitMode _splitMode;
 
-  // Granular allocation controllers: personId -> TextEditingController
   final Map<String, TextEditingController> _customShareControllers = {};
 
-  // Form Validation State
   String? _descriptionError;
   String? _amountError;
   String? _participantsError;
   String? _splitAllocationError;
-  bool _isFormValid = false;
+  bool _isFormValid = true;
 
   @override
   void initState() {
     super.initState();
-    final provider = Provider.of<ExpenseProvider>(context, listen: false);
-    _selectedPaidById = provider.currentUser.id;
-    _selectedParticipantIds.add(provider.currentUser.id);
-    if (provider.friends.isNotEmpty) {
-      _selectedParticipantIds.add(provider.friends.first.id);
+    _descriptionController =
+        TextEditingController(text: widget.expense.description);
+    _amountController =
+        TextEditingController(text: widget.expense.amount.toStringAsFixed(2));
+    _selectedCategory = widget.expense.category;
+    _selectedPaidById = widget.expense.paidById;
+    _selectedParticipantIds = Set<String>.from(widget.expense.participantIds);
+    _splitMode = widget.expense.splitMode;
+
+    for (var entry in widget.expense.customShares.entries) {
+      _customShareControllers[entry.key] =
+          TextEditingController(text: entry.value.toStringAsFixed(2));
     }
 
     _descriptionController.addListener(_validateForm);
     _amountController.addListener(_validateForm);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _validateForm();
-    });
   }
 
   @override
@@ -67,20 +69,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   void _validateForm() {
     setState(() {
-      // 1. Description Validation
       final desc = _descriptionController.text.trim();
       _descriptionError = desc.isEmpty ? 'Description is required' : null;
 
-      // 2. Amount Validation
       final amountText = _amountController.text.trim();
       double parsedAmount = 0.0;
       if (amountText.isEmpty) {
         _amountError = 'Amount is required';
       } else {
         final val = double.tryParse(amountText);
-        if (val == null) {
-          _amountError = 'Must be a valid number';
-        } else if (val <= 0) {
+        if (val == null || val <= 0) {
           _amountError = 'Amount must be greater than \$0.00';
         } else {
           parsedAmount = val;
@@ -88,7 +86,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         }
       }
 
-      // 3. Participants Validation
       if (!_selectedParticipantIds.contains(_selectedPaidById)) {
         _selectedParticipantIds.add(_selectedPaidById);
       }
@@ -96,7 +93,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           ? 'Select at least 2 participants (including payer)'
           : null;
 
-      // 4. Granular Split Allocation Validation
       _splitAllocationError = null;
       if (_splitMode == SplitMode.exactAmount && parsedAmount > 0) {
         double sumExact = 0.0;
@@ -104,8 +100,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           final text = _customShareControllers[pId]?.text ?? '0';
           sumExact += double.tryParse(text) ?? 0.0;
         }
-        final diff = (parsedAmount - sumExact).abs();
-        if (diff > 0.01) {
+        if ((parsedAmount - sumExact).abs() > 0.01) {
           _splitAllocationError =
               'Sum of exact amounts (\$${sumExact.toStringAsFixed(2)}) must equal total (\$${parsedAmount.toStringAsFixed(2)})';
         }
@@ -121,7 +116,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         }
       }
 
-      // Form validity
       _isFormValid = _descriptionError == null &&
           _amountError == null &&
           _participantsError == null &&
@@ -134,13 +128,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return double.tryParse(text) ?? 0.0;
   }
 
-  void _submitExpense() {
+  void _saveUpdatedExpense() {
     _validateForm();
     if (!_isFormValid) return;
 
-    final provider = Provider.of<ExpenseProvider>(context, listen: false);
     final Map<String, double> customSharesMap = {};
-
     if (_splitMode != SplitMode.equal) {
       for (var pId in _selectedParticipantIds) {
         final text = _customShareControllers[pId]?.text ?? '0';
@@ -148,14 +140,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     }
 
-    final descLower = _descriptionController.text.trim().toLowerCase();
-    final isDirectPayment = descLower.contains('pay') ||
-        descLower.contains('settle') ||
-        descLower.contains('transfer') ||
-        descLower.contains('repay');
-
-    final newExpense = Expense(
-      id: 'exp_${DateTime.now().millisecondsSinceEpoch}',
+    final updatedExpense = Expense(
+      id: widget.expense.id,
       description: _descriptionController.text.trim(),
       amount: _currentParsedAmount,
       category: _selectedCategory,
@@ -163,66 +149,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       participantIds: _selectedParticipantIds.toList(),
       splitMode: _splitMode,
       customShares: customSharesMap,
-      isSettlement: isDirectPayment,
-      timestamp: DateTime.now(),
+      timestamp: widget.expense.timestamp,
     );
 
-    provider.addExpense(newExpense);
+    final provider = Provider.of<ExpenseProvider>(context, listen: false);
+    provider.updateExpense(updatedExpense);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Added "${newExpense.description}" (\$${newExpense.amount.toStringAsFixed(2)})',
+          'Updated "${updatedExpense.description}" to \$${updatedExpense.amount.toStringAsFixed(2)}!',
         ),
         backgroundColor: AppColors.positive,
       ),
     );
 
     Navigator.pop(context);
-  }
-
-  void _scanReceiptWithOCR() async {
-    HapticFeedback.mediumImpact();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            CircularProgressIndicator(color: AppColors.primary),
-            SizedBox(height: 16),
-            Text(
-              'Scanning Receipt OCR...',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Extracting bill items, total amount, & merchant details...',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    await Future.delayed(const Duration(milliseconds: 1400));
-    if (!mounted) return;
-    Navigator.pop(context);
-
-    setState(() {
-      _descriptionController.text = 'Starbucks Coffee & Pastries';
-      _amountController.text = '24.50';
-      _selectedCategory = CategoryType.coffee;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✨ OCR Receipt Scanned! Pre-filled \$24.50 for Starbucks'),
-        backgroundColor: AppColors.positive,
-      ),
-    );
   }
 
   @override
@@ -236,26 +178,30 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back_rounded,
+              color: Theme.of(context).textTheme.bodyLarge?.color),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Add New Expense',
+        title: Text(
+          'Edit Expense',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
-          TextButton.icon(
-            onPressed: _scanReceiptWithOCR,
-            icon: const Icon(Icons.document_scanner_rounded,
-                color: AppColors.positive, size: 18),
-            label: const Text(
-              'OCR Scan',
-              style: TextStyle(
-                  color: AppColors.positive, fontWeight: FontWeight.bold),
-            ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.negative),
+            onPressed: () {
+              provider.deleteExpense(widget.expense.id);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Deleted "${widget.expense.description}"'),
+                  backgroundColor: AppColors.negative,
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -267,95 +213,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Transaction Mode Switcher: Split Bill vs Direct Pay
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardTheme.color,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.surfaceBorder, width: 1),
-                ),
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isDirectPaymentMode = false;
-                          });
-                          _validateForm();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: !_isDirectPaymentMode
-                                ? AppColors.primary
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '🤝 Split Shared Bill',
-                            style: TextStyle(
-                              color: !_isDirectPaymentMode
-                                  ? Colors.white
-                                  : AppColors.textMuted,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isDirectPaymentMode = true;
-                          });
-                          _validateForm();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _isDirectPaymentMode
-                                ? AppColors.positive
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '💸 Direct Pay / Settle',
-                            style: TextStyle(
-                              color: _isDirectPaymentMode
-                                  ? Colors.black
-                                  : AppColors.textMuted,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Live Split Share Banner
+              // Live Share Banner
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   gradient: AppColors.cardAccentGradient,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -364,26 +228,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _isDirectPaymentMode
-                              ? 'DIRECT PAYMENT (100% LEDGER RECORD)'
-                              : _splitMode.displayName.toUpperCase(),
+                          _splitMode.displayName.toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _isDirectPaymentMode
-                              ? '${currencyFormat.format(_currentParsedAmount)} Direct'
-                              : _splitMode == SplitMode.equal
-                                  ? '${currencyFormat.format(_selectedParticipantIds.isNotEmpty ? _currentParsedAmount / _selectedParticipantIds.length : 0)} / person'
-                                  : currencyFormat.format(_currentParsedAmount),
+                          currencyFormat.format(_currentParsedAmount),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 22,
+                            fontSize: 26,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
@@ -418,15 +275,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   color: AppColors.textMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
                 ),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _descriptionController,
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyLarge?.color),
                 decoration: InputDecoration(
-                  hintText: 'e.g., Chipotle Dinner, Wi-Fi bill',
                   prefixIcon: const Icon(Icons.edit_note_rounded,
                       color: AppColors.primaryLight),
                   errorText: _descriptionError,
@@ -435,14 +291,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
               const SizedBox(height: 20),
 
-              // Amount Input
+              // Amount Input Field
               const Text(
-                'AMOUNT (\$)',
+                'CHANGE EXPENSE AMOUNT (\$)',
                 style: TextStyle(
                   color: AppColors.textMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
                 ),
               ),
               const SizedBox(height: 8),
@@ -453,17 +308,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 20,
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
                 decoration: InputDecoration(
-                  hintText: '0.00',
                   prefixText: '\$ ',
                   prefixStyle: const TextStyle(
                     color: AppColors.primaryLight,
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                   errorText: _amountError,
@@ -472,14 +326,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
               const SizedBox(height: 24),
 
-              // Granular Allocation Mode Selector (Phase 2)
+              // Split Mode Selector
               const Text(
                 'SPLIT DISTRIBUTION MODE',
                 style: TextStyle(
                   color: AppColors.textMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
                 ),
               ),
               const SizedBox(height: 10),
@@ -500,7 +353,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           decoration: BoxDecoration(
                             color: _splitMode == mode
                                 ? AppColors.primary
-                                : AppColors.cardBackground,
+                                : Theme.of(context).cardTheme.color,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: _splitMode == mode
@@ -546,7 +399,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   color: AppColors.textMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
                 ),
               ),
               const SizedBox(height: 10),
@@ -573,7 +425,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? cat.color
-                              : AppColors.cardBackground,
+                              : Theme.of(context).cardTheme.color,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isSelected
@@ -612,21 +464,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
               const SizedBox(height: 24),
 
-              // Paid By Selector
+              // Paid By Dropdown
               const Text(
                 'PAID BY',
                 style: TextStyle(
                   color: AppColors.textMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
                 ),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
+                  color: Theme.of(context).cardTheme.color,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.surfaceBorder, width: 1),
                 ),
@@ -656,8 +507,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               person.id == provider.currentUser.id
                                   ? '${person.name} (You)'
                                   : person.name,
-                              style: const TextStyle(
-                                  color: AppColors.textPrimary,
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.color,
                                   fontWeight: FontWeight.w600),
                             ),
                           ],
@@ -678,7 +532,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
               const SizedBox(height: 24),
 
-              // Participants Selection & Custom Share Inputs (Phase 2)
+              // Participants Multi-select Filter Chips
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -688,7 +542,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       color: AppColors.textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
                     ),
                   ),
                   TextButton(
@@ -748,7 +601,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
-                    backgroundColor: AppColors.cardBackground,
+                    backgroundColor: Theme.of(context).cardTheme.color,
                     selectedColor: AppColors.primary,
                     onSelected: (selected) {
                       setState(() {
@@ -794,8 +647,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           Expanded(
                             child: Text(
                               person.name,
-                              style: const TextStyle(
-                                  color: AppColors.textPrimary,
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.color,
                                   fontWeight: FontWeight.w600),
                             ),
                           ),
@@ -807,8 +663,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   const TextInputType.numberWithOptions(
                                       decimal: true),
                               onChanged: (_) => _validateForm(),
-                              style: const TextStyle(
-                                  color: AppColors.textPrimary,
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.color,
                                   fontWeight: FontWeight.bold),
                               decoration: InputDecoration(
                                 contentPadding: const EdgeInsets.symmetric(
@@ -858,20 +717,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
               const SizedBox(height: 32),
 
-              // Submit Button
+              // Save Changes Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isFormValid ? _submitExpense : null,
+                  onPressed: _isFormValid ? _saveUpdatedExpense : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _isFormValid ? AppColors.primary : AppColors.cardElevated,
+                    backgroundColor: _isFormValid
+                        ? AppColors.primary
+                        : AppColors.cardElevated,
                     foregroundColor:
                         _isFormValid ? Colors.white : AppColors.textMuted,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: const Text(
-                    'ADD EXPENSE NOW',
+                    'SAVE EXPENSE CHANGES',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

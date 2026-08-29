@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/expense.dart';
@@ -59,14 +60,12 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     final provider = Provider.of<ExpenseProvider>(context);
     List<Expense> allExpenses = provider.expenses;
 
-    // Filter by category if selected
     if (_selectedCategoryFilter != null) {
       allExpenses = allExpenses
           .where((e) => e.category == _selectedCategoryFilter)
           .toList();
     }
 
-    // Filter by search query if non-empty
     if (_searchQuery.trim().isNotEmpty) {
       allExpenses = allExpenses
           .where((e) => e.description
@@ -81,10 +80,10 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Activity Log',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -96,7 +95,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
-                // Search TextField
                 TextField(
                   controller: _searchController,
                   onChanged: (val) {
@@ -104,7 +102,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                       _searchQuery = val;
                     });
                   },
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color),
                   decoration: InputDecoration(
                     hintText: 'Search expenses by title...',
                     prefixIcon: const Icon(Icons.search_rounded,
@@ -128,7 +127,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
 
                 const SizedBox(height: 12),
 
-                // Category Filter Chips
                 SizedBox(
                   height: 38,
                   child: ListView(
@@ -141,7 +139,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                           label: const Text('All'),
                           selected: _selectedCategoryFilter == null,
                           selectedColor: AppColors.primary,
-                          backgroundColor: AppColors.cardBackground,
+                          backgroundColor: Theme.of(context).cardTheme.color,
                           labelStyle: TextStyle(
                             color: _selectedCategoryFilter == null
                                 ? Colors.white
@@ -167,7 +165,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                             label: Text(cat.name),
                             selected: isSelected,
                             selectedColor: cat.color,
-                            backgroundColor: AppColors.cardBackground,
+                            backgroundColor: Theme.of(context).cardTheme.color,
                             labelStyle: TextStyle(
                               color: isSelected
                                   ? Colors.white
@@ -189,11 +187,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                 ),
               ],
             ),
-          ),
+          ).animate().fadeIn(duration: 350.ms),
 
           const SizedBox(height: 16),
 
-          // Grouped Expenses List
+          // Grouped Expenses List with Animations
           Expanded(
             child: allExpenses.isEmpty
                 ? const EmptyStateWidget(
@@ -201,7 +199,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                     title: 'No matching expenses',
                     message:
                         'Try searching for another keyword or clearing category filters.',
-                  )
+                  ).animate().fadeIn(duration: 400.ms)
                 : ListView.builder(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -226,9 +224,12 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                               ),
                             ),
                           ),
-                          ...sectionExpenses.map((expense) {
+                          ...sectionExpenses.asMap().entries.map((expEntry) {
+                            final expIndex = expEntry.key;
+                            final expense = expEntry.value;
                             final paidBy =
                                 provider.getPersonById(expense.paidById);
+
                             return ExpenseCard(
                               expense: expense,
                               paidByPerson: paidBy,
@@ -243,7 +244,12 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                                   ),
                                 );
                               },
-                            );
+                            )
+                                .animate()
+                                .fadeIn(
+                                    delay: (60 * expIndex).ms,
+                                    duration: 350.ms)
+                                .slideY(begin: 0.1, end: 0);
                           }),
                         ],
                       );

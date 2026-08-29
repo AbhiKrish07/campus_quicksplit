@@ -23,7 +23,7 @@ class AnalyticsScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Spend Analytics & Insights',
+          'Spend Analytics & Architecture',
           style: TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
@@ -40,7 +40,7 @@ class AnalyticsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.cardBackground,
+                color: Theme.of(context).cardTheme.color,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: AppColors.surfaceBorder, width: 1),
               ),
@@ -106,7 +106,7 @@ class AnalyticsScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            'Graph Debt Optimization Engine',
+                            'goPaymentGraph (Min-Flow Engine)',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -133,7 +133,7 @@ class AnalyticsScreen extends StatelessWidget {
                           margin: const EdgeInsets.only(bottom: 10),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.cardBackground.withValues(alpha: 0.8),
+                            color: Theme.of(context).cardTheme.color,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                                 color: AppColors.surfaceBorder, width: 1),
@@ -158,8 +158,8 @@ class AnalyticsScreen extends StatelessWidget {
                                     const SizedBox(width: 6),
                                     Text(
                                       sender.name.split(' ').first,
-                                      style: const TextStyle(
-                                          color: AppColors.textPrimary,
+                                      style: TextStyle(
+                                          color: Theme.of(context).textTheme.bodyLarge?.color,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 13),
                                     ),
@@ -183,8 +183,8 @@ class AnalyticsScreen extends StatelessWidget {
                                     const SizedBox(width: 6),
                                     Text(
                                       receiver.name.split(' ').first,
-                                      style: const TextStyle(
-                                          color: AppColors.textPrimary,
+                                      style: TextStyle(
+                                          color: Theme.of(context).textTheme.bodyLarge?.color,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 13),
                                     ),
@@ -204,6 +204,80 @@ class AnalyticsScreen extends StatelessWidget {
                         );
                       }).toList(),
                     ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Backend System Microservices Architecture (Matching User Diagrams 1 & 2)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardTheme.color,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.surfaceBorder, width: 1),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.cloud_sync_rounded,
+                          color: AppColors.primary, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'BACKEND SYSTEM ARCHITECTURE',
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Distributed Microservices Topology (AWS & Splitwise Go Scaling)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildArchitectureRow(
+                    context,
+                    title: '⚡ API Gateway & Load Balancer',
+                    subtitle: 'Entry router handling JWT auth, rate limiting & CDN caching',
+                    status: 'ACTIVE',
+                    color: Colors.amber,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildArchitectureRow(
+                    context,
+                    title: '📦 Expense Service (DB & Metadata Cache)',
+                    subtitle: 'Stores expense metadata, attachments & bill itemization',
+                    status: 'SYNCED',
+                    color: AppColors.primaryLight,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildArchitectureRow(
+                    context,
+                    title: '⚖️ Balance Service (goPaymentGraph)',
+                    subtitle: 'O(N) min-flow debt algorithm graph solver per group (gid)',
+                    status: 'OPTIMAL',
+                    color: AppColors.positive,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildArchitectureRow(
+                    context,
+                    title: '🔔 Notification Service (Queue & SQS)',
+                    subtitle: 'Asynchronous payment settlement & cash request alerts',
+                    status: 'READY',
+                    color: AppColors.secondary,
+                  ),
                 ],
               ),
             ),
@@ -239,7 +313,7 @@ class AnalyticsScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
+                    color: Theme.of(context).cardTheme.color,
                     borderRadius: BorderRadius.circular(18),
                     border:
                         Border.all(color: AppColors.surfaceBorder, width: 1),
@@ -251,13 +325,19 @@ class AnalyticsScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Icon(category.icon,
-                                  color: category.color, size: 20),
-                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: category.color.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(category.icon,
+                                    color: category.color, size: 18),
+                              ),
+                              const SizedBox(width: 12),
                               Text(
                                 category.name,
                                 style: const TextStyle(
-                                  color: AppColors.textPrimary,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                 ),
@@ -267,35 +347,21 @@ class AnalyticsScreen extends StatelessWidget {
                           Text(
                             currencyFormat.format(amount),
                             style: const TextStyle(
-                              color: AppColors.textPrimary,
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: LinearProgressIndicator(
                           value: percentage,
-                          minHeight: 8,
-                          backgroundColor: AppColors.cardElevated,
+                          backgroundColor: AppColors.surfaceBorder,
                           valueColor: AlwaysStoppedAnimation<Color>(category.color),
+                          minHeight: 8,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${(percentage * 100).toStringAsFixed(1)}% of total',
-                            style: const TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -303,6 +369,67 @@ class AnalyticsScreen extends StatelessWidget {
               }),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildArchitectureRow(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required String status,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceBorder.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.surfaceBorder, width: 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: color, width: 1),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

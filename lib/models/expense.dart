@@ -11,6 +11,7 @@ class Expense {
   final List<String> participantIds;
   final SplitMode splitMode;
   final Map<String, double> customShares; // personId -> dollar share OR percentage value
+  final bool isSettlement;
   final DateTime timestamp;
 
   Expense({
@@ -23,14 +24,24 @@ class Expense {
     required this.participantIds,
     this.splitMode = SplitMode.equal,
     Map<String, double>? customShares,
+    this.isSettlement = false,
     required this.timestamp,
   })  : payerContributions = payerContributions ?? {paidById: amount},
         customShares = customShares ?? {};
 
   /// Computes the exact dollar share for a specific participant taking into account
-  /// equal remainder distribution, exact dollar amounts, or percentage ratios.
+  /// equal remainder distribution, exact dollar amounts, percentage ratios, or direct settlements.
   double getShareForParticipant(String personId) {
     if (!participantIds.contains(personId) || participantIds.isEmpty) return 0.0;
+
+    if (isSettlement) {
+      // In a 1-to-1 settlement transfer, the payee (personId != paidById) has 100% of the share amount,
+      // while the payer (paidById) has 0.0 share.
+      if (personId != paidById) {
+        return amount;
+      }
+      return 0.0;
+    }
 
     switch (splitMode) {
       case SplitMode.equal:
@@ -81,6 +92,7 @@ class Expense {
       'participantIds': participantIds,
       'splitMode': splitMode.name,
       'customShares': customShares,
+      'isSettlement': isSettlement,
       'timestamp': timestamp.toIso8601String(),
     };
   }
@@ -105,9 +117,18 @@ class Expense {
       return {};
     }
 
+    final expId = json['id'] as String? ?? '';
+    final expDesc = json['description'] as String? ?? '';
+    final descLower = expDesc.toLowerCase();
+    final isSettle = (json['isSettlement'] as bool? ?? false) ||
+        expId.startsWith('settle_') ||
+        descLower.contains('settle') ||
+        descLower.contains('pay') ||
+        descLower.contains('transfer');
+
     return Expense(
-      id: json['id'] as String,
-      description: json['description'] as String,
+      id: expId,
+      description: expDesc,
       amount: (json['amount'] as num).toDouble(),
       category: catType,
       paidById: json['paidById'] as String,
@@ -115,6 +136,7 @@ class Expense {
       participantIds: List<String>.from(json['participantIds'] as List),
       splitMode: mode,
       customShares: parseMap(json['customShares']),
+      isSettlement: isSettle,
       timestamp: DateTime.parse(json['timestamp'] as String),
     );
   }

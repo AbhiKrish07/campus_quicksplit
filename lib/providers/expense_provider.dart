@@ -10,7 +10,7 @@ import '../logic/local_storage_service.dart';
 
 class ExpenseProvider extends ChangeNotifier {
   // Current logged in user (Vanessa)
-  final Person _currentUser = const Person(
+  Person _currentUser = const Person(
     id: 'user_me',
     name: 'Vanessa Lobanovskiy',
     initials: 'VL',
@@ -52,7 +52,7 @@ class ExpenseProvider extends ChangeNotifier {
   ];
 
   // Initial mock groups
-  late final List<Group> _groups = [
+  final List<Group> _groups = [
     const Group(
       id: 'group_1',
       name: 'The Convoy House',
@@ -62,125 +62,263 @@ class ExpenseProvider extends ChangeNotifier {
     const Group(
       id: 'group_2',
       name: "Mom's Birthday Gift",
-      participantIds: ['user_me', 'friend_1', 'friend_2', 'friend_3'],
+      participantIds: ['user_me', 'friend_2', 'friend_4'],
       icon: '🎁',
     ),
     const Group(
       id: 'group_3',
-      name: 'Weekend Hackathon',
-      participantIds: ['user_me', 'friend_3', 'friend_4'],
+      name: 'CS301 Hackathon Team',
+      participantIds: ['user_me', 'friend_1', 'friend_2', 'friend_3'],
       icon: '💻',
     ),
   ];
 
-  // Expenses store
-  final List<Expense> _expenses = [];
+  // User PIN & Bank Accounts
+  String _userPin = '1234';
+  List<String> _bankAccounts = [
+    'State Bank of India •••• 4821',
+    'HDFC Bank •••• 9102',
+    'Chase Premier •••• 5519',
+  ];
 
-  // Temporary storage for Undo deletion
+  List<Expense> _expenses = [];
+
   Expense? _recentlyDeletedExpense;
   int? _recentlyDeletedIndex;
 
   ExpenseProvider() {
-    _loadLocalStateOrInit();
+    _loadSavedData();
   }
 
-  Future<void> _loadLocalStateOrInit() async {
-    final stored = await LocalStorageService.loadExpenses();
-    if (stored != null && stored.isNotEmpty) {
-      _expenses.clear();
-      _expenses.addAll(stored);
+  Future<void> _loadSavedData() async {
+    final loadedExpenses = await LocalStorageService.loadExpenses();
+    if (loadedExpenses != null && loadedExpenses.isNotEmpty) {
+      _expenses = loadedExpenses;
     } else {
       _initInitialMockData();
-      await LocalStorageService.saveExpenses(_expenses);
     }
+
+    final loadedFriends = await LocalStorageService.loadFriends();
+    if (loadedFriends != null && loadedFriends.isNotEmpty) {
+      _friends.clear();
+      _friends.addAll(loadedFriends);
+    }
+
+    final loadedGroups = await LocalStorageService.loadGroups();
+    if (loadedGroups != null && loadedGroups.isNotEmpty) {
+      _groups.clear();
+      _groups.addAll(loadedGroups);
+    }
+
+    _userPin = await LocalStorageService.loadUserPin();
+    final savedBanks = await LocalStorageService.loadBankAccounts();
+    if (savedBanks != null && savedBanks.isNotEmpty) {
+      _bankAccounts = savedBanks;
+    }
+
+    final authMap = await LocalStorageService.loadAuthState();
+    _isLoggedIn = authMap['isLoggedIn'] as bool? ?? true;
+    _userEmail = authMap['email'] as String? ?? 'vanessa.campus@gmail.com';
+    _authMethod = authMap['method'] as String? ?? 'Google Sign-In';
+
+    final userProfile = await LocalStorageService.loadUserProfile();
+    if (userProfile != null) {
+      final name = userProfile['name']!;
+      final initials = name
+          .split(' ')
+          .map((e) => e.isNotEmpty ? e[0] : '')
+          .take(2)
+          .join()
+          .toUpperCase();
+      _currentUser = Person(
+        id: 'user_me',
+        name: name,
+        initials: initials.isNotEmpty ? initials : 'ME',
+        color: _currentUser.color,
+      );
+      _userEmail = userProfile['email']!;
+    }
+
+    notifyListeners();
+  }
+
+  bool _isLoggedIn = true;
+  String _userEmail = 'vanessa.campus@gmail.com';
+  String _authMethod = 'Google Sign-In';
+
+  bool get isLoggedIn => _isLoggedIn;
+  String get userEmail => _userEmail;
+  String get authMethod => _authMethod;
+
+  Future<void> updateUserProfile(String newName, String newEmail) async {
+    final initials = newName
+        .split(' ')
+        .map((e) => e.isNotEmpty ? e[0] : '')
+        .take(2)
+        .join()
+        .toUpperCase();
+
+    _currentUser = Person(
+      id: 'user_me',
+      name: newName,
+      initials: initials.isNotEmpty ? initials : 'ME',
+      color: _currentUser.color,
+    );
+    _userEmail = newEmail;
+
+    await LocalStorageService.saveUserProfile(newName, newEmail);
+    await LocalStorageService.saveAuthState(_isLoggedIn, _userEmail, _authMethod);
+    notifyListeners();
+  }
+
+  Future<void> updateFriendName(String friendId, String newName) async {
+    final index = _friends.indexWhere((f) => f.id == friendId);
+    if (index != -1) {
+      final old = _friends[index];
+      final initials = newName
+          .split(' ')
+          .map((e) => e.isNotEmpty ? e[0] : '')
+          .take(2)
+          .join()
+          .toUpperCase();
+
+      _friends[index] = Person(
+        id: old.id,
+        name: newName,
+        initials: initials.isNotEmpty ? initials : old.initials,
+        color: old.color,
+      );
+
+      await LocalStorageService.saveFriends(_friends);
+      notifyListeners();
+    }
+  }
+
+  void resetInitialData() {
+    _expenses.clear();
+    _initInitialMockData();
+    LocalStorageService.saveExpenses(_expenses);
+    notifyListeners();
+  }
+
+  Future<void> updateGroupName(String groupId, String newName) async {
+    final index = _groups.indexWhere((g) => g.id == groupId);
+    if (index != -1) {
+      final old = _groups[index];
+      _groups[index] = Group(
+        id: old.id,
+        name: newName,
+        participantIds: old.participantIds,
+        icon: old.icon,
+      );
+
+      await LocalStorageService.saveGroups(_groups);
+      notifyListeners();
+    }
+  }
+
+  Future<void> loginWithGoogleAccount(String name, String email) async {
+    _isLoggedIn = true;
+    _userEmail = email;
+    _authMethod = 'Google Sign-In';
+
+    final initials = name
+        .split(' ')
+        .map((e) => e.isNotEmpty ? e[0] : '')
+        .take(2)
+        .join()
+        .toUpperCase();
+
+    _currentUser = Person(
+      id: 'user_me',
+      name: name,
+      initials: initials.isNotEmpty ? initials : 'GO',
+      color: _currentUser.color,
+    );
+
+    await LocalStorageService.saveUserProfile(name, email);
+    await LocalStorageService.saveAuthState(true, email, _authMethod);
+    notifyListeners();
+  }
+
+  Future<void> loginWithGoogle() async {
+    await loginWithGoogleAccount('Vanessa Lobanovskiy', 'vanessa.google@campus.edu');
+  }
+
+  Future<void> loginWithEmail(String email, String password) async {
+    _isLoggedIn = true;
+    _userEmail = email.isNotEmpty ? email : 'vanessa.campus@gmail.com';
+    _authMethod = 'Email & Password';
+    await LocalStorageService.saveAuthState(true, _userEmail, _authMethod);
+    notifyListeners();
+  }
+
+  Future<void> logout() async {
+    _isLoggedIn = false;
+    await LocalStorageService.saveAuthState(false, '', '');
+    notifyListeners();
+  }
+
+  void addFriend(Person newFriend) {
+    if (_friends.any((f) => f.id == newFriend.id)) return;
+    _friends.add(newFriend);
+    LocalStorageService.saveFriends(_friends);
     notifyListeners();
   }
 
   void _initInitialMockData() {
-    final now = DateTime.now();
-    _expenses.addAll([
+    _expenses = [
       Expense(
         id: 'exp_1',
-        description: 'Starbucks Coffee & Bagels',
-        amount: 25.30,
-        category: CategoryType.coffee,
-        paidById: 'user_me',
-        participantIds: ['user_me', 'friend_1'],
-        timestamp: now.subtract(const Duration(minutes: 45)),
+        description: 'Burger King Feast',
+        amount: 120.00,
+        category: CategoryType.food,
+        paidById: 'friend_1',
+        participantIds: ['user_me', 'friend_1', 'friend_3', 'friend_4', 'friend_5'],
+        splitMode: SplitMode.equal,
+        timestamp: DateTime.now().subtract(const Duration(hours: 3)),
       ),
       Expense(
         id: 'exp_2',
-        description: 'Dribbble Pro Team Subscription',
-        amount: 180.00,
+        description: 'Game Center & Arcade',
+        amount: 300.00,
         category: CategoryType.subscription,
-        paidById: 'friend_1',
-        participantIds: ['user_me', 'friend_1', 'friend_3'],
-        timestamp: now.subtract(const Duration(hours: 3)),
+        paidById: 'user_me',
+        participantIds: ['user_me', 'friend_2', 'friend_4'],
+        splitMode: SplitMode.equal,
+        timestamp: DateTime.now().subtract(const Duration(days: 1)),
       ),
       Expense(
         id: 'exp_3',
-        description: 'Spotify Family Plan',
-        amount: 29.00,
-        category: CategoryType.subscription,
-        paidById: 'friend_1',
-        participantIds: ['user_me', 'friend_1'],
-        timestamp: now.subtract(const Duration(hours: 5)),
+        description: 'Fashion King Apparels',
+        amount: 160.00,
+        category: CategoryType.shopping,
+        paidById: 'friend_2',
+        participantIds: ['user_me', 'friend_2'],
+        splitMode: SplitMode.equal,
+        timestamp: DateTime.now().subtract(const Duration(days: 2)),
       ),
       Expense(
         id: 'exp_4',
-        description: 'Burger King Convoy Night',
-        amount: 120.00,
+        description: 'PVR Cinema Tickets',
+        amount: 140.00,
         category: CategoryType.food,
         paidById: 'user_me',
-        participantIds: ['user_me', 'friend_1', 'friend_3', 'friend_4', 'friend_5'],
-        timestamp: now.subtract(const Duration(days: 1, hours: 2)),
+        participantIds: ['user_me', 'friend_1', 'friend_3'],
+        splitMode: SplitMode.equal,
+        timestamp: DateTime.now().subtract(const Duration(days: 3)),
       ),
-      Expense(
-        id: 'exp_5',
-        description: 'Uber to Campus Event',
-        amount: 45.50,
-        category: CategoryType.travel,
-        paidById: 'friend_3',
-        participantIds: ['user_me', 'friend_3'],
-        timestamp: now.subtract(const Duration(days: 1, hours: 6)),
-      ),
-      Expense(
-        id: 'exp_6',
-        description: 'Apartment Wi-Fi & Electric',
-        amount: 150.00,
-        category: CategoryType.utilities,
-        paidById: 'user_me',
-        participantIds: ['user_me', 'friend_1', 'friend_4'],
-        timestamp: now.subtract(const Duration(days: 2)),
-      ),
-    ]);
+    ];
   }
 
-  // Getters
+  // GETTERS
   Person get currentUser => _currentUser;
   List<Person> get friends => List.unmodifiable(_friends);
-  List<Person> get allPeople => List.unmodifiable([_currentUser, ..._friends]);
+  List<Person> get allPeople => [_currentUser, ..._friends];
   List<Group> get groups => List.unmodifiable(_groups);
-  List<Expense> get expenses => List.unmodifiable(
-        [..._expenses]..sort((a, b) => b.timestamp.compareTo(a.timestamp)),
-      );
-
-  // Computed Financial Totals
-  double get totalYouAreOwed =>
-      BalanceCalculator.calculateTotalYouAreOwed(_currentUser.id, _expenses);
-
-  double get totalYouOwe =>
-      BalanceCalculator.calculateTotalYouOwe(_currentUser.id, _expenses);
-
-  double get netTotalBalance => totalYouAreOwed - totalYouOwe;
-
-  double getPairwiseBalance(String friendId) =>
-      BalanceCalculator.calculatePairwiseBalance(
-          _currentUser.id, friendId, _expenses);
-
-  /// Debt Simplification Algorithm Output
-  List<SimplifiedTransaction> get simplifiedDebts =>
-      DebtSimplifier.simplifyDebts(allPeople, _expenses);
+  List<Expense> get expenses => List.unmodifiable(_expenses);
+  String get userPin => _userPin;
+  List<String> get bankAccounts => List.unmodifiable(_bankAccounts);
 
   Person getPersonById(String id) {
     if (id == _currentUser.id) return _currentUser;
@@ -188,46 +326,119 @@ class ExpenseProvider extends ChangeNotifier {
       (f) => f.id == id,
       orElse: () => Person(
         id: id,
-        name: 'Unknown',
-        initials: '?',
-        color: Colors.grey,
+        name: 'Campus Peer',
+        initials: 'CP',
+        color: const Color(0xFF7C4DFF),
       ),
     );
   }
 
+  double get totalYouAreOwed =>
+      BalanceCalculator.calculateTotalYouAreOwed(_currentUser.id, _expenses);
+
+  double get totalYouOwe =>
+      BalanceCalculator.calculateTotalYouOwe(_currentUser.id, _expenses);
+
+  double get totalNetBalance =>
+      BalanceCalculator.calculateNetBalance(_currentUser.id, _expenses);
+
+  double getPairwiseBalance(String friendId) =>
+      BalanceCalculator.calculatePairwiseBalance(
+          _currentUser.id, friendId, _expenses);
+
+  List<SimplifiedTransaction> get simplifiedSettlements =>
+      DebtSimplifier.simplifyDebts(allPeople, _expenses);
+
+  List<SimplifiedTransaction> get simplifiedDebts =>
+      DebtSimplifier.simplifyDebts(allPeople, _expenses);
+
+  List<Expense> getExpensesForGroup(String groupId) => getGroupExpenses(groupId);
+
   List<Expense> getExpensesForFriend(String friendId) {
-    return _expenses
-        .where((e) =>
-            e.participantIds.contains(friendId) &&
-            e.participantIds.contains(_currentUser.id))
-        .toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return _expenses.where((e) {
+      return e.participantIds.contains(friendId) &&
+          (e.participantIds.contains(_currentUser.id) || e.paidById == friendId);
+    }).toList();
   }
 
-  List<Expense> getExpensesForGroup(String groupId) {
-    final group = _groups.firstWhere((g) => g.id == groupId);
-    return _expenses
-        .where((e) => e.participantIds
-            .any((pId) => group.participantIds.contains(pId)))
-        .toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-  }
-
-  // Analytics Category Breakdown
   Map<ExpenseCategory, double> getCategorySpendingBreakdown() {
-    final Map<ExpenseCategory, double> breakdown = {};
-    for (final exp in _expenses) {
-      final cat = ExpenseCategory.fromType(exp.category);
-      breakdown[cat] = (breakdown[cat] ?? 0.0) + exp.amount;
+    final map = <ExpenseCategory, double>{};
+    for (final e in _expenses) {
+      final cat = ExpenseCategory.fromType(e.category);
+      map[cat] = (map[cat] ?? 0.0) + e.amount;
     }
-    return breakdown;
+    return map;
   }
 
-  // Mutation Actions with Local Persistence
+  List<Expense> getGroupExpenses(String groupId) {
+    final group = _groups.firstWhere(
+      (g) => g.id == groupId,
+      orElse: () => _groups.first,
+    );
+    return _expenses.where((e) {
+      return e.participantIds
+          .any((pId) => group.participantIds.contains(pId));
+    }).toList();
+  }
+
+  double getGroupTotalExpenses(String groupId) {
+    return getGroupExpenses(groupId).fold(0.0, (sum, e) => sum + e.amount);
+  }
+
+  double getGroupUserNetBalance(String groupId) {
+    final groupExpenses = getGroupExpenses(groupId);
+    return BalanceCalculator.calculateNetBalance(_currentUser.id, groupExpenses);
+  }
+
+  // SETTERS & MUTATIONS
+  void setUserPin(String newPin) {
+    if (newPin.length == 4) {
+      _userPin = newPin;
+      LocalStorageService.saveUserPin(newPin);
+      notifyListeners();
+    }
+  }
+
+  void addBankAccount(String bankName) {
+    if (bankName.trim().isNotEmpty && !_bankAccounts.contains(bankName)) {
+      _bankAccounts.add(bankName.trim());
+      LocalStorageService.saveBankAccounts(_bankAccounts);
+      notifyListeners();
+    }
+  }
+
+  void removeBankAccount(String bankName) {
+    _bankAccounts.remove(bankName);
+    LocalStorageService.saveBankAccounts(_bankAccounts);
+    notifyListeners();
+  }
+
+  void createGroup(String name, String icon, List<String> memberIds) {
+    if (name.trim().isEmpty) return;
+    final newGroup = Group(
+      id: 'group_${DateTime.now().millisecondsSinceEpoch}',
+      name: name.trim(),
+      participantIds: ['user_me', ...memberIds],
+      icon: icon.isNotEmpty ? icon : '👥',
+    );
+    _groups.add(newGroup);
+    LocalStorageService.saveGroups(_groups);
+    notifyListeners();
+  }
+
   void addExpense(Expense expense) {
-    _expenses.add(expense);
+    _expenses.insert(0, expense);
     LocalStorageService.saveExpenses(_expenses);
     notifyListeners();
+  }
+
+  void updateExpense(Expense updatedExpense) {
+    final index = _expenses.indexWhere((e) => e.id == updatedExpense.id);
+    if (index != -1) {
+      _expenses[index] = updatedExpense;
+      LocalStorageService.saveExpenses(_expenses);
+      notifyListeners();
+    }
   }
 
   void deleteExpense(String expenseId) {
@@ -262,10 +473,18 @@ class ExpenseProvider extends ChangeNotifier {
       paidById: personAId,
       participantIds: [personAId, personBId],
       splitMode: SplitMode.equal,
+      isSettlement: true,
       timestamp: DateTime.now(),
     );
 
-    _expenses.add(settlementExpense);
+    _expenses.insert(0, settlementExpense);
+    LocalStorageService.saveExpenses(_expenses);
+    notifyListeners();
+  }
+
+  void resetToInitialData() {
+    _expenses.clear();
+    _initInitialMockData();
     LocalStorageService.saveExpenses(_expenses);
     notifyListeners();
   }

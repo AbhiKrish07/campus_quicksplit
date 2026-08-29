@@ -7,6 +7,7 @@ import '../widgets/expense_card.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/payment_gateway_modal.dart';
 import 'bill_detail_screen.dart';
+import 'request_cash_screen.dart';
 
 class FriendDetailScreen extends StatelessWidget {
   final String friendId;
@@ -20,14 +21,11 @@ class FriendDetailScreen extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalContext) {
-        final payerId = currentBalance < 0 ? currentUserId : friendId;
-        final payeeId = currentBalance < 0 ? friendId : currentUserId;
-
         return PaymentGatewayModal(
           payeeName: friendName,
-          payeeId: payeeId,
-          payerId: payerId,
-          defaultAmount: currentBalance.abs(),
+          payeeId: friendId,
+          payerId: currentUserId,
+          defaultAmount: currentBalance.abs() > 0 ? currentBalance.abs() : 10.0,
         );
       },
     );
@@ -133,12 +131,15 @@ class FriendDetailScreen extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Payment request notification sent to ${friend.name}!',
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => RequestCashScreen(
+                                initialFriendId: friend.id,
+                                initialAmount: pairwiseBalance.abs() > 0
+                                    ? pairwiseBalance.abs()
+                                    : null,
                               ),
-                              backgroundColor: AppColors.primary,
                             ),
                           );
                         },

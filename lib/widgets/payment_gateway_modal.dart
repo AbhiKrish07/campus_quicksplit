@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../logic/payment_gateway_service.dart';
 import '../providers/expense_provider.dart';
+import '../screens/quicksplit_payment_gateway_screen.dart';
 import '../theme/app_colors.dart';
 
 class PaymentGatewayModal extends StatefulWidget {
@@ -26,11 +27,11 @@ class PaymentGatewayModal extends StatefulWidget {
 class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
   late TextEditingController _amountController;
   PaymentMethod _selectedMethod = PaymentMethod.upi;
-  bool _isProcessing = false;
 
   @override
   void initState() {
     super.initState();
+    // DIRECT SETTLEMENT RULE: Initialize text field with exact 100% defaultAmount.
     _amountController = TextEditingController(
       text: widget.defaultAmount.abs().toStringAsFixed(2),
     );
@@ -42,7 +43,7 @@ class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
     super.dispose();
   }
 
-  void _processPayment() async {
+  void _proceedToGateway() async {
     final double? amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -54,55 +55,90 @@ class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
       return;
     }
 
-    setState(() {
-      _isProcessing = true;
-    });
+    final double exactPaymentAmount = amount;
+    final provider = Provider.of<ExpenseProvider>(context, listen: false);
+
+    Navigator.pop(context); // Close selection modal
 
     if (_selectedMethod == PaymentMethod.upi) {
+      // OPTION 1: External Paytm / UPI App Redirect + Completion Verification
       await PaymentGatewayService.launchUpiPayment(
         payeeName: widget.payeeName,
         upiId: '${widget.payeeName.toLowerCase().replaceAll(' ', '')}@upi',
-        amount: amount,
-        note: 'Campus QuickSplit Settlement',
+        amount: exactPaymentAmount,
+        note: 'QuickSplit Debt Settlement',
       );
-    } else if (_selectedMethod == PaymentMethod.stripeCard) {
-      await PaymentGatewayService.launchStripeCheckout(
-        amount: amount,
-        description: 'Campus QuickSplit Settlement to ${widget.payeeName}',
-      );
-    }
 
-    // Simulate gateway response verification
-    await Future.delayed(const Duration(milliseconds: 1200));
+      if (!mounted) return;
 
-    if (!mounted) return;
-
-    final provider = Provider.of<ExpenseProvider>(context, listen: false);
-    provider.settleUpBetween(widget.payerId, widget.payeeId, amount);
-
-    setState(() {
-      _isProcessing = false;
-    });
-
-    Navigator.pop(context);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Successfully processed \$${amount.toStringAsFixed(2)} payment via ${_selectedMethod == PaymentMethod.upi ? "UPI Gateway" : "Stripe"}!',
-              ),
+      final bool? isVerifiedSuccess = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.verified_outlined, color: AppColors.primary),
+              SizedBox(width: 10),
+              Text('Verify Payment'),
+            ],
+          ),
+          content: Text(
+            'Did you complete the \$${exactPaymentAmount.toStringAsFixed(2)} payment in Paytm / UPI app?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('NO / CANCELLED',
+                  style: TextStyle(color: AppColors.negative, fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.positive),
+              child: const Text('YES, COMPLETED', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
-        backgroundColor: AppColors.positive,
-        duration: const Duration(seconds: 4),
-      ),
-    );
+      );
+
+      if (isVerifiedSuccess == true) {
+        provider.settleUpBetween(widget.payerId, widget.payeeId, exactPaymentAmount);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment cancelled or unverified. Balance remains unchanged.'),
+            backgroundColor: AppColors.cardElevated,
+          ),
+        );
+      }
+    } else {
+      // OPTION 2: QuickSplit Authentic In-App Gateway & PIN Verification (GPay/Paytm styled)
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => QuickSplitPaymentGatewayScreen(
+            payeeName: widget.payeeName,
+            payeeId: widget.payeeId,
+            payerId: widget.payerId,
+            amount: exactPaymentAmount,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (result == true) {
+        // Verification Succeeded! settleUpBetween recorded inside QuickSplitPaymentGatewayScreen
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment process closed or declined. Balance remains unchanged.'),
+            backgroundColor: AppColors.cardElevated,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -199,7 +235,7 @@ class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
 
           // Select Gateway Method
           const Text(
-            'SELECT PAYMENT GATEWAY',
+            'CHOOSE PAYMENT METHOD',
             style: TextStyle(
               color: AppColors.textMuted,
               fontSize: 11,
@@ -209,7 +245,7 @@ class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
           ),
           const SizedBox(height: 10),
 
-          // Method 1: UPI Gateway (Google Pay / PhonePe / Paytm)
+          // Method 1: External Paytm / Google Pay UPI App Redirect
           GestureDetector(
             onTap: () {
               setState(() {
@@ -233,22 +269,21 @@ class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.flash_on_rounded,
-                      color: Colors.amber, size: 24),
+                  Icon(Icons.launch_rounded, color: Colors.amber, size: 24),
                   SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'UPI Instant Pay (GPay / PhonePe / Paytm)',
+                          'Option 1: Paytm / External UPI App Redirect',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                           ),
                         ),
                         Text(
-                          'Zero fee direct bank settlement via UPI deep-link',
+                          'Redirects to Paytm/GPay & verifies status upon return',
                           style: TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 11,
@@ -264,7 +299,7 @@ class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
             ),
           ),
 
-          // Method 2: Stripe Credit / Debit Card Gateway
+          // Method 2: Authentic QuickSplit In-App Gateway & PIN Verification
           GestureDetector(
             onTap: () {
               setState(() {
@@ -295,14 +330,14 @@ class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Stripe Secure Card Gateway',
+                          'Option 2: In-App UPI PIN & Stripe Card Gateway',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                           ),
                         ),
                         Text(
-                          'Visa, Mastercard, AMEX tokenized checkout',
+                          'In-app PIN verification & tokenized card checkout',
                           style: TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 11,
@@ -324,42 +359,19 @@ class _PaymentGatewayModalState extends State<PaymentGatewayModal> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isProcessing ? null : _processPayment,
+              onPressed: _proceedToGateway,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.positive,
                 foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: _isProcessing
-                  ? const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.black),
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        Text(
-                          'CONNECTING TO GATEWAY...',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      'PROCEED TO PAY NOW (${currencyFormat.format(double.tryParse(_amountController.text) ?? widget.defaultAmount.abs())})',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              child: Text(
+                'PROCEED TO PAY GATEWAY (${currencyFormat.format(double.tryParse(_amountController.text) ?? widget.defaultAmount.abs())})',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],

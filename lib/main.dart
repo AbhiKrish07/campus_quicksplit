@@ -4,6 +4,7 @@ import 'providers/expense_provider.dart';
 import 'providers/theme_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/main_navigation_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +29,14 @@ class CampusQuickSplitApp extends StatelessWidget {
             themeMode: themeProvider.themeMode,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
-            home: const MainNavigationScreen(),
+            home: Consumer<ExpenseProvider>(
+              builder: (context, expenseProvider, _) {
+                if (!expenseProvider.isLoggedIn) {
+                  return const LoginScreen();
+                }
+                return const MainNavigationScreen();
+              },
+            ),
           );
         },
       ),

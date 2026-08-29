@@ -7,6 +7,8 @@ import '../providers/expense_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/circular_participant_view.dart';
 import '../widgets/payment_gateway_modal.dart';
+import 'edit_expense_screen.dart';
+import 'request_cash_screen.dart';
 
 class BillDetailScreen extends StatelessWidget {
   final String expenseId;
@@ -55,6 +57,18 @@ class BillDetailScreen extends StatelessWidget {
               fontWeight: FontWeight.bold),
         ),
         actions: [
+          // Edit Expense Button
+          IconButton(
+            icon: const Icon(Icons.edit_rounded, color: AppColors.primaryLight),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EditExpenseScreen(expense: expense),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.share_outlined, color: AppColors.textSecondary),
             onPressed: () {
@@ -312,12 +326,13 @@ class BillDetailScreen extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Payment reminder requested for ${expense.description}!',
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RequestCashScreen(
+                            initialNote: expense.description,
+                            initialAmount: perPersonShare,
                           ),
-                          backgroundColor: AppColors.primary,
                         ),
                       );
                     },
