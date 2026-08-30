@@ -16,8 +16,8 @@
 **Campus QuickSplit** is a full-featured, production-grade expense-splitting and peer-to-peer debt settlement application designed specifically for college students, roomies, trip groups, and campus organizations. It solves complex multi-person bill allocations with mathematically exact split modes, graph-based debt simplification, OCR receipt processing, and verified payment gateway checkouts.
 
 ### Key Highlights
--  **Electric Royal Blue Fintech UI**: Modern dark/light fintech design system with interactive animations.
--  **100% Direct Debt Settlement**: Direct 1-to-1 peer payments clear exact debt balances without halving or unexpected splitting.
+-  ** Blue Fintech UI**: Modern dark/light fintech design system with interactive animations and light and dark mode switches.
+-  ** Direct Debt Settlement**: Direct 1-to-1 peer payments clear exact debt balances without halving or unexpected splitting.
 -  **Debt Simplification Graph Solver**: Reduces $N$-person circular debts down to minimal direct transfer paths using a net-flow optimization algorithm.
 -  **OCR Receipt Scanner**: Auto-detects item descriptions and prices from paper receipt images to instantly populate expense forms.
 -  **Dual Payment Gateways**: Option for external Paytm/GPay UPI app redirects (with completion verification checks) and in-app animated 4-digit UPI PIN & Stripe tokenized card checkouts.
