@@ -64,32 +64,32 @@ Computes net balances for all participants across expenses and solves the **Mini
 
 ```mermaid
 flowchart TD
-    subgraph Client Layer (UI)
-        A[LoginScreen / Google Auth] --> B[MainNavigationScreen]
-        B --> C[DashboardScreen]
-        B --> D[GroupsListScreen / GroupDetailScreen]
-        B --> E[AnalyticsScreen & Donut Chart]
-        B --> F[FriendsListScreen & RequestCashScreen]
-        B --> G[AddExpenseScreen / OCR Receipt Scanner]
+    subgraph Client ["Client UI Layer"]
+        A["Login Screen & Google Auth"] --> B["Main Navigation Bar"]
+        B --> C["Dashboard Screen"]
+        B --> D["Groups Hub & Detail"]
+        B --> E["Spend Analytics & Donut Chart"]
+        B --> F["Friends List & Peer Request"]
+        B --> G["Add Expense & OCR Scanner"]
     end
 
-    subgraph State Management Layer
-        H[ExpenseProvider]
-        I[ThemeProvider]
+    subgraph State ["State Management Layer"]
+        H["ExpenseProvider"]
+        I["ThemeProvider"]
     end
 
-    subgraph Business Logic & Algorithms
-        J[BalanceCalculator Engine]
-        K[DebtSimplifier Min-Flow Graph Solver]
-        L[PaymentGatewayService]
+    subgraph Logic ["Logic & Algorithmic Solvers"]
+        J["BalanceCalculator Engine"]
+        K["DebtSimplifier Min-Flow Graph Solver"]
+        L["PaymentGatewayService"]
     end
 
-    subgraph Storage Layer (Local-First)
-        M[(LocalStorageService / SharedPreferences)]
+    subgraph Storage ["Local-First Disk Storage"]
+        M[("LocalStorageService / SharedPreferences")]
     end
 
-    Client Layer -->|Reads / Dispatches Actions| H
-    Client Layer -->|Theme Toggles| I
+    Client -->|Dispatches Actions| H
+    Client -->|Toggles Theme| I
     H -->|Computes Balances| J
     H -->|Simplifies Group Debts| K
     H -->|Executes Payments| L
