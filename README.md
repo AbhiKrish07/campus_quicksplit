@@ -1,7 +1,7 @@
 #  Campus QuickSplit
 
 > **Smart Campus Debt & Shared Expense Management Platform**  
-> Built for GDG (Google Developer Groups) Campus Engineering Challenge.
+> Built for GDG
 
 [![Flutter Version](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![Dart Version](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)](https://dart.dev)
@@ -13,12 +13,12 @@
 
 ## Project Overview
 
-**Campus QuickSplit** is a full-featured, production-grade expense-splitting and peer-to-peer debt settlement application designed specifically for college students, roomies, trip groups, and campus organizations. It solves complex multi-person bill allocations with mathematically exact split modes, graph-based debt simplification, OCR receipt processing, and verified payment gateway checkouts.
+**Campus QuickSplit** is a expense-splitting and peer-to-peer debt settlement application designed specifically for college students, roomies, trip groups, and campus organizations. It solves the multi-person bill allocation problem with mathematically exact split modes, graph-based debt simplification, OCR receipt processing, and verified payment gateway checkouts.
 
 ### Key Highlights
--  ** Blue Fintech UI**: Modern dark/light fintech design system with interactive animations and light and dark mode switches.
--  ** Direct Debt Settlement**: Direct 1-to-1 peer payments clear exact debt balances without halving or unexpected splitting.
--  **Debt Simplification Graph Solver**: Reduces $N$-person circular debts down to minimal direct transfer paths using a net-flow optimization algorithm.
+-  **Minimalist UI**: Modern dark/light fintech design system with interactive animations and light and dark mode switches.
+-  **Direct Debt Settlement**: Direct 1-to-1 peer payments clear exact debt balances without halving or unexpected splitting.
+-  **Debt Simplification**: Reduces $N$-person circular debts down to minimal direct transfer paths using a net-flow optimization algorithm.
 -  **OCR Receipt Scanner**: Auto-detects item descriptions and prices from paper receipt images to instantly populate expense forms.
 -  **Dual Payment Gateways**: Option for external Paytm/GPay UPI app redirects (with completion verification checks) and in-app animated 4-digit UPI PIN & Stripe tokenized card checkouts.
 -  **Campus Groups & Friends Hub**: Dedicated management for campus peers (with custom display aliases) and group hubs with member management.
@@ -39,7 +39,7 @@
 
 ---
 
-## 🔄 Data Processes & Core Business Logic
+## Data Processes & Core Business Logic
 
 ### 1. Debt Simplification Algorithm (`DebtSimplifier`)
 Computes net balances for all participants across expenses and solves the **Minimum Flow Debt Problem**:
@@ -98,7 +98,7 @@ flowchart TD
 
 ---
 
-##  Feature Matrix 
+##  Features 
 
 | Phase | Feature | Status | Implementation File |
 |---|---|---|---|
@@ -161,6 +161,6 @@ flutter build web --release
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
