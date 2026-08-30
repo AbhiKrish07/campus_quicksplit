@@ -20,7 +20,7 @@
 -  **Direct Debt Settlement**: Direct 1-to-1 peer payments clear exact debt balances without halving or unexpected splitting.
 -  **Debt Simplification**: Reduces $N$-person circular debts down to minimal direct transfer paths using a net-flow optimization algorithm.
 -  **OCR Receipt Scanner**: Auto-detects item descriptions and prices from paper receipt images to instantly populate expense forms.
--  **Dual Payment Gateways**: Option for external Paytm/GPay UPI app redirects (with completion verification checks) and in-app animated 4-digit UPI PIN & Stripe tokenized card checkouts.
+-  **Dual Payment Gateways**: Option for external Paytm/GPay UPI app redirects and in-app animated 4-digit UPI PIN & Stripe tokenized card checkouts.
 -  **Campus Groups & Friends Hub**: Dedicated management for campus peers (with custom display aliases) and group hubs with member management.
 
 ---
