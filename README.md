@@ -1,4 +1,4 @@
-# ⚡ Campus QuickSplit
+#  Campus QuickSplit
 
 > **Smart Campus Debt & Shared Expense Management Platform**  
 > Built for GDG (Google Developer Groups) Campus Engineering Challenge.
